@@ -88,7 +88,13 @@ static struct bpf_map *cpu_map_alloc(union bpf_attr *attr)
 	if (!cmap)
 		return ERR_PTR(-ENOMEM);
 
-	bpf_map_init_from_attr(&cmap->map, attr);
+	/* mandatory map attributes */
+	cmap->map.map_type = attr->map_type;
+	cmap->map.key_size = attr->key_size;
+	cmap->map.value_size = attr->value_size;
+	cmap->map.max_entries = attr->max_entries;
+	cmap->map.map_flags = attr->map_flags;
+	cmap->map.numa_node = bpf_map_attr_numa_node(attr);
 
 	/* Pre-limit array size based on NR_CPUS, not final CPU check */
 	if (cmap->map.max_entries > NR_CPUS) {
@@ -454,7 +460,6 @@ const struct bpf_map_ops cpu_map_ops = {
 	.map_update_elem	= cpu_map_update_elem,
 	.map_lookup_elem	= cpu_map_lookup_elem,
 	.map_get_next_key	= cpu_map_get_next_key,
-	.map_check_btf		= map_check_no_btf,
 };
 
 static int bq_flush_to_queue(struct bpf_cpu_map_entry *rcpu,
