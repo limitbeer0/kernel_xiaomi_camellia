@@ -1197,8 +1197,8 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 		addrs[i] = proglen;
 	}
 	ctx.cleanup_addr = proglen;
-
 skip_init_addrs:
+
 	/* JITed image shrinks with every pass and the loop iterates
 	 * until the image stops shrinking. Very large bpf programs
 	 * may converge on the last pass. In such case do one more
@@ -1255,9 +1255,7 @@ out_image:
 		prog = orig_prog;
 	}
 
-	if (!image || !prog->is_func || extra_pass) {
-		if (image)
-			bpf_prog_fill_jited_linfo(prog, addrs);
+	if (!prog->is_func || extra_pass) {
 out_addrs:
 		kfree(addrs);
 		kfree(jit_data);
