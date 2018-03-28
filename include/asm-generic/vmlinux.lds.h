@@ -181,10 +181,10 @@
 #endif
 
 #ifdef CONFIG_BPF_EVENTS
-#define BPF_RAW_TP() STRUCT_ALIGN();                                   \
-			VMLINUX_SYMBOL(__start__bpf_raw_tp) = .;       \
-			KEEP(*(__bpf_raw_tp_map))                      \
-			VMLINUX_SYMBOL(__stop__bpf_raw_tp) = .;
+#define BPF_RAW_TP() STRUCT_ALIGN();					\
+			 VMLINUX_SYMBOL(__start__bpf_raw_tp) = .;	\
+			 KEEP(*(__bpf_raw_tp_map))			\
+			 VMLINUX_SYMBOL(__stop__bpf_raw_tp) = .;
 #else
 #define BPF_RAW_TP()
 #endif
@@ -257,7 +257,7 @@
 	LIKELY_PROFILE()		       				\
 	BRANCH_PROFILE()						\
 	TRACE_PRINTKS()							\
-	BPF_RAW_TP()                                                    \
+	BPF_RAW_TP()							\
 	TRACEPOINT_STR()
 
 /*
