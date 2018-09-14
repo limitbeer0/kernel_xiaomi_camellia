@@ -100,7 +100,6 @@ int skb_flow_dissector_bpf_prog_detach(const union bpf_attr *attr)
 	mutex_unlock(&flow_dissector_mutex);
 	return 0;
 }
-
 /**
  * skb_flow_get_be16 - extract be16 entity
  * @skb: sk_buff to extract from
