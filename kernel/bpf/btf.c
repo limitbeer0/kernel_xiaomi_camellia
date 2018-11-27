@@ -164,13 +164,16 @@
 #define BITS_ROUNDUP_BYTES(bits) \
 	(BITS_ROUNDDOWN_BYTES(bits) + !!BITS_PER_BYTE_MASKED(bits))
 
+#define BTF_INFO_MASK 0x0f00ffff
+#define BTF_INT_MASK 0x0fffffff
+#define BTF_TYPE_ID_VALID(type_id) ((type_id) <= BTF_MAX_TYPE)
+#define BTF_STR_OFFSET_VALID(name_off) ((name_off) <= BTF_MAX_NAME_OFFSET)
+
 /* 16MB for 64k structs and each has 16 members and
  * a few MB spaces for the string section.
  * The hard limit is S32_MAX.
  */
 #define BTF_MAX_SIZE (16 * 1024 * 1024)
-/* 64k. We can raise it later. The hard limit is S32_MAX. */
-#define BTF_MAX_NR_TYPES 65535
 
 #define for_each_member(i, struct_type, member)			\
 	for (i = 0, member = btf_type_member(struct_type);	\
@@ -384,8 +387,6 @@ static const char *btf_int_encoding_str(u8 encoding)
 		return "CHAR";
 	else if (encoding == BTF_INT_BOOL)
 		return "BOOL";
-	else if (encoding == BTF_INT_VARARGS)
-		return "VARARGS";
 	else
 		return "UNKN";
 }
@@ -422,8 +423,8 @@ static const struct btf_kind_operations *btf_type_ops(const struct btf_type *t)
 
 static bool btf_name_offset_valid(const struct btf *btf, u32 offset)
 {
-	return !BTF_STR_TBL_ELF_ID(offset) &&
-		BTF_STR_OFFSET(offset) < btf->hdr.str_len;
+	return BTF_STR_OFFSET_VALID(offset) &&
+		offset < btf->hdr.str_len;
 }
 
 /* Only C-style identifier is permitted. This can be relaxed if
@@ -452,10 +453,10 @@ static bool btf_name_valid_identifier(const struct btf *btf, u32 offset)
 
 static const char *btf_name_by_offset(const struct btf *btf, u32 offset)
 {
-	if (!BTF_STR_OFFSET(offset))
+	if (!offset)
 		return "(anon)";
-	else if (BTF_STR_OFFSET(offset) < btf->hdr.str_len)
-		return &btf->strings[BTF_STR_OFFSET(offset)];
+	else if (offset < btf->hdr.str_len)
+		return &btf->strings[offset];
 	else
 		return "(invalid-name-offset)";
 }
@@ -466,6 +467,28 @@ static const struct btf_type *btf_type_by_id(const struct btf *btf, u32 type_id)
 		return NULL;
 
 	return btf->types[type_id];
+}
+
+/*
+ * Regular int is not a bit field and it must be either
+ * u8/u16/u32/u64.
+ */
+static bool btf_type_int_is_regular(const struct btf_type *t)
+{
+	u8 nr_bits, nr_bytes;
+	u32 int_data;
+
+	int_data = btf_type_int(t);
+	nr_bits = BTF_INT_BITS(int_data);
+	nr_bytes = BITS_ROUNDUP_BYTES(nr_bits);
+	if (BITS_PER_BYTE_MASKED(nr_bits) ||
+	    BTF_INT_OFFSET(int_data) ||
+	    (nr_bytes != sizeof(u8) && nr_bytes != sizeof(u16) &&
+	     nr_bytes != sizeof(u32) && nr_bytes != sizeof(u64))) {
+		return false;
+	}
+
+	return true;
 }
 
 __printf(2, 3) static void __btf_verifier_log(struct bpf_verifier_log *log,
@@ -601,13 +624,13 @@ static int btf_add_type(struct btf_verifier_env *env, struct btf_type *t)
 		struct btf_type **new_types;
 		u32 expand_by, new_size;
 
-		if (btf->types_size == BTF_MAX_NR_TYPES) {
+		if (btf->types_size == BTF_MAX_TYPE) {
 			btf_verifier_log(env, "Exceeded max num of types");
 			return -E2BIG;
 		}
 
 		expand_by = max_t(u32, btf->types_size >> 2, 16);
-		new_size = min_t(u32, BTF_MAX_NR_TYPES,
+		new_size = min_t(u32, BTF_MAX_TYPE,
 				 btf->types_size + expand_by);
 
 		new_types = kvcalloc(new_size, sizeof(*new_types),
@@ -751,7 +774,7 @@ static bool env_type_is_resolve_sink(const struct btf_verifier_env *env,
 			!btf_type_is_array(next_type) &&
 			!btf_type_is_struct(next_type);
 	default:
-		BUG_ON(1);
+		BUG();
 	}
 }
 
@@ -937,6 +960,12 @@ static s32 btf_int_check_meta(struct btf_verifier_env *env,
 	}
 
 	int_data = btf_type_int(t);
+	if (int_data & ~BTF_INT_MASK) {
+		btf_verifier_log_basic(env, t, "Invalid int_data:%x",
+				       int_data);
+		return -EINVAL;
+	}
+
 	nr_bits = BTF_INT_BITS(int_data) + BTF_INT_OFFSET(int_data);
 
 	if (nr_bits > BITS_PER_U64) {
@@ -950,12 +979,17 @@ static s32 btf_int_check_meta(struct btf_verifier_env *env,
 		return -EINVAL;
 	}
 
+	/*
+	 * Only one of the encoding bits is allowed and it
+	 * should be sufficient for the pretty print purpose (i.e. decoding).
+	 * Multiple bits can be allowed later if it is found
+	 * to be insufficient.
+	 */
 	encoding = BTF_INT_ENCODING(int_data);
 	if (encoding &&
 	    encoding != BTF_INT_SIGNED &&
 	    encoding != BTF_INT_CHAR &&
-	    encoding != BTF_INT_BOOL &&
-	    encoding != BTF_INT_VARARGS) {
+	    encoding != BTF_INT_BOOL) {
 		btf_verifier_log_type(env, t, "Unsupported encoding");
 		return -ENOTSUPP;
 	}
@@ -982,38 +1016,38 @@ static void btf_int_bits_seq_show(const struct btf *btf,
 				  void *data, u8 bits_offset,
 				  struct seq_file *m)
 {
+	u16 left_shift_bits, right_shift_bits;
 	u32 int_data = btf_type_int(t);
-	u16 nr_bits = BTF_INT_BITS(int_data);
-	u16 total_bits_offset;
-	u16 nr_copy_bytes;
-	u16 nr_copy_bits;
-	u8 nr_upper_bits;
-	union {
-		u64 u64_num;
-		u8  u8_nums[8];
-	} print_num;
+	u8 nr_bits = BTF_INT_BITS(int_data);
+	u8 total_bits_offset;
+	u8 nr_copy_bytes;
+	u8 nr_copy_bits;
+	u64 print_num;
 
+	/*
+	 * bits_offset is at most 7.
+	 * BTF_INT_OFFSET() cannot exceed 64 bits.
+	 */
 	total_bits_offset = bits_offset + BTF_INT_OFFSET(int_data);
 	data += BITS_ROUNDDOWN_BYTES(total_bits_offset);
 	bits_offset = BITS_PER_BYTE_MASKED(total_bits_offset);
 	nr_copy_bits = nr_bits + bits_offset;
 	nr_copy_bytes = BITS_ROUNDUP_BYTES(nr_copy_bits);
 
-	print_num.u64_num = 0;
-	memcpy(&print_num.u64_num, data, nr_copy_bytes);
+	print_num = 0;
+	memcpy(&print_num, data, nr_copy_bytes);
 
-	/* Ditch the higher order bits */
-	nr_upper_bits = BITS_PER_BYTE_MASKED(nr_copy_bits);
-	if (nr_upper_bits) {
-		/* We need to mask out some bits of the upper byte. */
-		u8 mask = (1 << nr_upper_bits) - 1;
+#ifdef __BIG_ENDIAN_BITFIELD
+	left_shift_bits = bits_offset;
+#else
+	left_shift_bits = BITS_PER_U64 - nr_copy_bits;
+#endif
+	right_shift_bits = BITS_PER_U64 - nr_bits;
 
-		print_num.u8_nums[nr_copy_bytes - 1] &= mask;
-	}
+	print_num <<= left_shift_bits;
+	print_num >>= right_shift_bits;
 
-	print_num.u64_num >>= bits_offset;
-
-	seq_printf(m, "0x%llx", print_num.u64_num);
+	seq_printf(m, "0x%llx", print_num);
 }
 
 static void btf_int_seq_show(const struct btf *btf, const struct btf_type *t,
@@ -1023,7 +1057,7 @@ static void btf_int_seq_show(const struct btf *btf, const struct btf_type *t,
 	u32 int_data = btf_type_int(t);
 	u8 encoding = BTF_INT_ENCODING(int_data);
 	bool sign = encoding & BTF_INT_SIGNED;
-	u32 nr_bits = BTF_INT_BITS(int_data);
+	u8 nr_bits = BTF_INT_BITS(int_data);
 
 	if (bits_offset || BTF_INT_OFFSET(int_data) ||
 	    BITS_PER_BYTE_MASKED(nr_bits)) {
@@ -1129,9 +1163,25 @@ static int btf_ref_type_check_meta(struct btf_verifier_env *env,
 		return -EINVAL;
 	}
 
-	if (BTF_TYPE_PARENT(t->type)) {
+	if (!BTF_TYPE_ID_VALID(t->type)) {
 		btf_verifier_log_type(env, t, "Invalid type_id");
 		return -EINVAL;
+	}
+
+	/* typedef type must have a valid name, and other ref types,
+	 * volatile, const, restrict, should have a null name.
+	 */
+	if (BTF_INFO_KIND(t->info) == BTF_KIND_TYPEDEF) {
+		if (!t->name_off ||
+		    !btf_name_valid_identifier(env->btf, t->name_off)) {
+			btf_verifier_log_type(env, t, "Invalid name");
+			return -EINVAL;
+		}
+	} else {
+		if (t->name_off) {
+			btf_verifier_log_type(env, t, "Invalid name");
+			return -EINVAL;
+		}
 	}
 
 	btf_verifier_log_type(env, t, NULL);
@@ -1277,8 +1327,34 @@ static struct btf_kind_operations ptr_ops = {
 	.seq_show = btf_ptr_seq_show,
 };
 
+static s32 btf_fwd_check_meta(struct btf_verifier_env *env,
+			      const struct btf_type *t,
+			      u32 meta_left)
+{
+	if (btf_type_vlen(t)) {
+		btf_verifier_log_type(env, t, "vlen != 0");
+		return -EINVAL;
+	}
+
+	if (t->type) {
+		btf_verifier_log_type(env, t, "type != 0");
+		return -EINVAL;
+	}
+
+	/* fwd type must have a valid name */
+	if (!t->name_off ||
+	    !btf_name_valid_identifier(env->btf, t->name_off)) {
+		btf_verifier_log_type(env, t, "Invalid name");
+		return -EINVAL;
+	}
+
+	btf_verifier_log_type(env, t, NULL);
+
+	return 0;
+}
+
 static struct btf_kind_operations fwd_ops = {
-	.check_meta = btf_ref_type_check_meta,
+	.check_meta = btf_fwd_check_meta,
 	.resolve = btf_df_resolve,
 	.check_member = btf_df_check_member,
 	.log_details = btf_ref_type_log,
@@ -1328,19 +1404,32 @@ static s32 btf_array_check_meta(struct btf_verifier_env *env,
 		return -EINVAL;
 	}
 
+	/* array type should not have a name */
+	if (t->name_off) {
+		btf_verifier_log_type(env, t, "Invalid name");
+		return -EINVAL;
+	}
+
 	if (btf_type_vlen(t)) {
 		btf_verifier_log_type(env, t, "vlen != 0");
 		return -EINVAL;
 	}
 
-	/* We are a little forgiving on array->index_type since
-	 * the kernel is not using it.
+	if (t->size) {
+		btf_verifier_log_type(env, t, "size != 0");
+		return -EINVAL;
+	}
+
+	/* Array elem type and index type cannot be in type void,
+	 * so !array->type and !array->index_type are not allowed.
 	 */
-	/* Array elem cannot be in type void,
-	 * so !array->type is not allowed.
-	 */
-	if (!array->type || BTF_TYPE_PARENT(array->type)) {
-		btf_verifier_log_type(env, t, "Invalid type_id");
+	if (!array->type || !BTF_TYPE_ID_VALID(array->type)) {
+		btf_verifier_log_type(env, t, "Invalid elem");
+		return -EINVAL;
+	}
+
+	if (!array->index_type || !BTF_TYPE_ID_VALID(array->index_type)) {
+		btf_verifier_log_type(env, t, "Invalid index");
 		return -EINVAL;
 	}
 
@@ -1353,11 +1442,32 @@ static int btf_array_resolve(struct btf_verifier_env *env,
 			     const struct resolve_vertex *v)
 {
 	const struct btf_array *array = btf_type_array(v->t);
-	const struct btf_type *elem_type;
-	u32 elem_type_id = array->type;
+	const struct btf_type *elem_type, *index_type;
+	u32 elem_type_id, index_type_id;
 	struct btf *btf = env->btf;
 	u32 elem_size;
 
+	/* Check array->index_type */
+	index_type_id = array->index_type;
+	index_type = btf_type_by_id(btf, index_type_id);
+	if (btf_type_is_void_or_null(index_type)) {
+		btf_verifier_log_type(env, v->t, "Invalid index");
+		return -EINVAL;
+	}
+
+	if (!env_type_is_resolve_sink(env, index_type) &&
+	    !env_type_is_resolved(env, index_type_id))
+		return env_stack_push(env, index_type, index_type_id);
+
+	index_type = btf_type_id_size(btf, &index_type_id, NULL);
+	if (!index_type || !btf_type_is_int(index_type) ||
+	    !btf_type_int_is_regular(index_type)) {
+		btf_verifier_log_type(env, v->t, "Invalid index");
+		return -EINVAL;
+	}
+
+	/* Check array->type */
+	elem_type_id = array->type;
 	elem_type = btf_type_by_id(btf, elem_type_id);
 	if (btf_type_is_void_or_null(elem_type)) {
 		btf_verifier_log_type(env, v->t,
@@ -1375,22 +1485,9 @@ static int btf_array_resolve(struct btf_verifier_env *env,
 		return -EINVAL;
 	}
 
-	if (btf_type_is_int(elem_type)) {
-		int int_type_data = btf_type_int(elem_type);
-		u16 nr_bits = BTF_INT_BITS(int_type_data);
-		u16 nr_bytes = BITS_ROUNDUP_BYTES(nr_bits);
-
-		/* Put more restriction on array of int.  The int cannot
-		 * be a bit field and it must be either u8/u16/u32/u64.
-		 */
-		if (BITS_PER_BYTE_MASKED(nr_bits) ||
-		    BTF_INT_OFFSET(int_type_data) ||
-		    (nr_bytes != sizeof(u8) && nr_bytes != sizeof(u16) &&
-		     nr_bytes != sizeof(u32) && nr_bytes != sizeof(u64))) {
-			btf_verifier_log_type(env, v->t,
-					      "Invalid array of int");
-			return -EINVAL;
-		}
+	if (btf_type_is_int(elem_type) && !btf_type_int_is_regular(elem_type)) {
+		btf_verifier_log_type(env, v->t, "Invalid array of int");
+		return -EINVAL;
 	}
 
 	if (array->nelems && elem_size > U32_MAX / array->nelems) {
@@ -1476,9 +1573,9 @@ static s32 btf_struct_check_meta(struct btf_verifier_env *env,
 {
 	bool is_union = BTF_INFO_KIND(t->info) == BTF_KIND_UNION;
 	const struct btf_member *member;
+	u32 meta_needed, last_offset;
 	struct btf *btf = env->btf;
 	u32 struct_size = t->size;
-	u32 meta_needed;
 	u16 i;
 
 	meta_needed = btf_type_vlen(t) * sizeof(*member);
@@ -1489,8 +1586,16 @@ static s32 btf_struct_check_meta(struct btf_verifier_env *env,
 		return -EINVAL;
 	}
 
+	/* struct type either no name or a valid one */
+	if (t->name_off &&
+	    !btf_name_valid_identifier(env->btf, t->name_off)) {
+		btf_verifier_log_type(env, t, "Invalid name");
+		return -EINVAL;
+	}
+
 	btf_verifier_log_type(env, t, NULL);
 
+	last_offset = 0;
 	for_each_member(i, t, member) {
 		if (!btf_name_offset_valid(btf, member->name_off)) {
 			btf_verifier_log_member(env, t, member,
@@ -1499,14 +1604,30 @@ static s32 btf_struct_check_meta(struct btf_verifier_env *env,
 			return -EINVAL;
 		}
 
+		/* struct member either no name or a valid one */
+		if (member->name_off &&
+		    !btf_name_valid_identifier(btf, member->name_off)) {
+			btf_verifier_log_member(env, t, member, "Invalid name");
+			return -EINVAL;
+		}
 		/* A member cannot be in type void */
-		if (!member->type || BTF_TYPE_PARENT(member->type)) {
+		if (!member->type || !BTF_TYPE_ID_VALID(member->type)) {
 			btf_verifier_log_member(env, t, member,
 						"Invalid type_id");
 			return -EINVAL;
 		}
 
 		if (is_union && member->offset) {
+			btf_verifier_log_member(env, t, member,
+						"Invalid member bits_offset");
+			return -EINVAL;
+		}
+
+		/*
+		 * ">" instead of ">=" because the last member could be
+		 * "char a[0];"
+		 */
+		if (last_offset > member->offset) {
 			btf_verifier_log_member(env, t, member,
 						"Invalid member bits_offset");
 			return -EINVAL;
@@ -1519,6 +1640,7 @@ static s32 btf_struct_check_meta(struct btf_verifier_env *env,
 		}
 
 		btf_verifier_log_member(env, t, member, NULL);
+		last_offset = member->offset;
 	}
 
 	return meta_needed;
@@ -1675,6 +1797,13 @@ static s32 btf_enum_check_meta(struct btf_verifier_env *env,
 		return -EINVAL;
 	}
 
+	/* enum type either no name or a valid one */
+	if (t->name_off &&
+	    !btf_name_valid_identifier(env->btf, t->name_off)) {
+		btf_verifier_log_type(env, t, "Invalid name");
+		return -EINVAL;
+	}
+
 	btf_verifier_log_type(env, t, NULL);
 
 	for (i = 0; i < nr_enums; i++) {
@@ -1683,6 +1812,14 @@ static s32 btf_enum_check_meta(struct btf_verifier_env *env,
 					 enums[i].name_off);
 			return -EINVAL;
 		}
+
+		/* enum member must have a valid name */
+		if (!enums[i].name_off ||
+		    !btf_name_valid_identifier(btf, enums[i].name_off)) {
+			btf_verifier_log_type(env, t, "Invalid name");
+			return -EINVAL;
+		}
+
 
 		btf_verifier_log(env, "\t%s val=%d\n",
 				 btf_name_by_offset(btf, enums[i].name_off),
@@ -1753,6 +1890,12 @@ static s32 btf_check_meta(struct btf_verifier_env *env,
 	}
 	meta_left -= sizeof(*t);
 
+	if (t->info & ~BTF_INFO_MASK) {
+		btf_verifier_log(env, "[%u] Invalid btf_info:%x",
+				 env->log_type_id, t->info);
+		return -EINVAL;
+	}
+
 	if (BTF_INFO_KIND(t->info) > BTF_KIND_MAX ||
 	    BTF_INFO_KIND(t->info) == BTF_KIND_UNKN) {
 		btf_verifier_log(env, "[%u] Invalid kind:%u",
@@ -1783,7 +1926,7 @@ static int btf_check_all_metas(struct btf_verifier_env *env)
 
 	hdr = &btf->hdr;
 	cur = btf->nohdr_data + hdr->type_off;
-	end = btf->nohdr_data + hdr->type_len;
+	end = cur + hdr->type_len;
 
 	env->log_type_id = 1;
 	while (cur < end) {
@@ -1956,8 +2099,7 @@ static int btf_sec_info_cmp(const void *a, const void *b)
 static int btf_check_sec_info(struct btf_verifier_env *env,
 			      u32 btf_data_size)
 {
-	const unsigned int nr_secs = ARRAY_SIZE(btf_sec_info_offset);
-	struct btf_sec_info secs[nr_secs];
+	struct btf_sec_info secs[ARRAY_SIZE(btf_sec_info_offset)];
 	u32 total, expected_total, i;
 	const struct btf_header *hdr;
 	const struct btf *btf;
@@ -1966,17 +2108,17 @@ static int btf_check_sec_info(struct btf_verifier_env *env,
 	hdr = &btf->hdr;
 
 	/* Populate the secs from hdr */
-	for (i = 0; i < nr_secs; i++)
+	for (i = 0; i < ARRAY_SIZE(btf_sec_info_offset); i++)
 		secs[i] = *(struct btf_sec_info *)((void *)hdr +
 						   btf_sec_info_offset[i]);
 
-	sort(secs, nr_secs, sizeof(struct btf_sec_info),
-	     btf_sec_info_cmp, NULL);
+	sort(secs, ARRAY_SIZE(btf_sec_info_offset),
+	     sizeof(struct btf_sec_info), btf_sec_info_cmp, NULL);
 
 	/* Check for gaps and overlap among sections */
 	total = 0;
 	expected_total = btf_data_size - hdr->hdr_len;
-	for (i = 0; i < nr_secs; i++) {
+	for (i = 0; i < ARRAY_SIZE(btf_sec_info_offset); i++) {
 		if (expected_total < secs[i].off) {
 			btf_verifier_log(env, "Invalid section offset");
 			return -EINVAL;
@@ -2007,52 +2149,49 @@ static int btf_check_sec_info(struct btf_verifier_env *env,
 	return 0;
 }
 
-static int btf_parse_hdr(struct btf_verifier_env *env, void __user *btf_data,
-			 u32 btf_data_size)
+static int btf_parse_hdr(struct btf_verifier_env *env)
 {
+	u32 hdr_len, hdr_copy, btf_data_size;
 	const struct btf_header *hdr;
-	u32 hdr_len, hdr_copy;
-	/*
-	 * Minimal part of the "struct btf_header" that
-	 * contains the hdr_len.
-	 */
-	struct btf_min_header {
-		u16	magic;
-		u8	version;
-		u8	flags;
-		u32	hdr_len;
-	} __user *min_hdr;
 	struct btf *btf;
 	int err;
 
 	btf = env->btf;
-	min_hdr = btf_data;
+	btf_data_size = btf->data_size;
 
-	if (btf_data_size < sizeof(*min_hdr)) {
+	if (btf_data_size <
+	    offsetof(struct btf_header, hdr_len) + sizeof(hdr->hdr_len)) {
 		btf_verifier_log(env, "hdr_len not found");
 		return -EINVAL;
 	}
 
-	if (get_user(hdr_len, &min_hdr->hdr_len))
-		return -EFAULT;
-
+	hdr = btf->data;
+	hdr_len = hdr->hdr_len;
 	if (btf_data_size < hdr_len) {
 		btf_verifier_log(env, "btf_header not found");
 		return -EINVAL;
 	}
 
-	err = bpf_check_uarg_tail_zero(btf_data, sizeof(btf->hdr), hdr_len);
-	if (err) {
-		if (err == -E2BIG)
-			btf_verifier_log(env, "Unsupported btf_header");
-		return err;
+	/* Ensure the unsupported header fields are zero */
+	if (hdr_len > sizeof(btf->hdr)) {
+		u8 *expected_zero = btf->data + sizeof(btf->hdr);
+		u8 *end = btf->data + hdr_len;
+
+		for (; expected_zero < end; expected_zero++) {
+			if (*expected_zero) {
+				btf_verifier_log(env, "Unsupported btf_header");
+				return -E2BIG;
+			}
+		}
 	}
 
 	hdr_copy = min_t(u32, hdr_len, sizeof(btf->hdr));
-	if (copy_from_user(&btf->hdr, btf_data, hdr_copy))
-		return -EFAULT;
+	memcpy(&btf->hdr, btf->data, hdr_copy);
 
 	hdr = &btf->hdr;
+
+	if (hdr->hdr_len != hdr_len)
+		return -EINVAL;
 
 	btf_verifier_log_hdr(env, btf_data_size);
 
@@ -2123,10 +2262,6 @@ static struct btf *btf_parse(void __user *btf_data, u32 btf_data_size,
 	}
 	env->btf = btf;
 
-	err = btf_parse_hdr(env, btf_data, btf_data_size);
-	if (err)
-		goto errout;
-
 	data = kvmalloc(btf_data_size, GFP_KERNEL | __GFP_NOWARN);
 	if (!data) {
 		err = -ENOMEM;
@@ -2135,12 +2270,17 @@ static struct btf *btf_parse(void __user *btf_data, u32 btf_data_size,
 
 	btf->data = data;
 	btf->data_size = btf_data_size;
-	btf->nohdr_data = btf->data + btf->hdr.hdr_len;
 
 	if (copy_from_user(data, btf_data, btf_data_size)) {
 		err = -EFAULT;
 		goto errout;
 	}
+
+	err = btf_parse_hdr(env);
+	if (err)
+		goto errout;
+
+	btf->nohdr_data = btf->data + btf->hdr.hdr_len;
 
 	err = btf_parse_str_sec(env);
 	if (err)
