@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/bpf-cgroup.h>
 #include <linux/kmemleak.h>
+#include <linux/bpf-cgroup.h>
 #include "internal.h"
 
 static const struct dentry_operations proc_sys_dentry_operations;
