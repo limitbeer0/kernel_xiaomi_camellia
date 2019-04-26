@@ -10,14 +10,6 @@
 #include <net/sock.h>
 #include <uapi/linux/btf.h>
 
-#include <linux/vmalloc.h>
-#include <linux/mm.h>
-static inline void *__compat_kvcalloc(size_t n, size_t size, gfp_t flags)
-{
-        return kvmalloc_array(n, size, flags | __GFP_ZERO);
-}
-#define kvcalloc __compat_kvcalloc
-
 static atomic_t cache_idx;
 
 struct bucket {

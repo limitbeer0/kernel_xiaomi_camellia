@@ -231,6 +231,8 @@ struct sock_common {
 	/* public: */
 };
 
+struct bpf_sk_storage;
+
 /**
 struct bpf_sk_storage;
   *	struct sock - network layer representation of sockets
