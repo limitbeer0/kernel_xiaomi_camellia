@@ -41,7 +41,7 @@
 #include <linux/platform_data/spi-mt65xx.h>
 #endif
 
-#define NVT_DEBUG 1
+#define NVT_DEBUG 0
 /*BSP.Tp - 2020.11.05 -add NVT_LOCKDOWN - start*/
 #define NVT_LOCKDOWN 1
 /*BSP.Tp - 2020.11.05 -add NVT_LOCKDOWN, end*/
@@ -66,9 +66,11 @@ void nvt_lockdown_proc_deinit(void);
 #define NVT_SPI_NAME "NVT-ts"
 
 #if NVT_DEBUG
-#define NVT_LOG(fmt, args...)    pr_err("[%s] %s %d: " fmt, NVT_SPI_NAME, __func__, __LINE__, ##args)
+#define NVT_LOG(fmt, args...)                                                  \
+	pr_info("[%s] %s %d: " fmt, NVT_SPI_NAME, __func__, __LINE__, ##args)
 #else
-#define NVT_LOG(fmt, args...)    pr_info("[%s] %s %d: " fmt, NVT_SPI_NAME, __func__, __LINE__, ##args)
+#define NVT_LOG(fmt, args...)                                                  \
+	pr_debug("[%s] %s %d: " fmt, NVT_SPI_NAME, __func__, __LINE__, ##args)
 #endif
 #define NVT_ERR(fmt, args...)    pr_err("[%s] %s %d: " fmt, NVT_SPI_NAME, __func__, __LINE__, ##args)
 
