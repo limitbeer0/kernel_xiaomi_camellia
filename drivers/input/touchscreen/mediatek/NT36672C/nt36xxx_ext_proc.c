@@ -194,9 +194,9 @@ static ssize_t nvt_max_power_switch_proc_read(struct file *filp, char __user *bu
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_get_max_power_switch(&max_power_switch);
 
@@ -260,9 +260,9 @@ static ssize_t nvt_max_power_switch_proc_write(struct file *filp, const char __u
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_set_max_power_switch(max_power_switch);
 
@@ -549,9 +549,9 @@ static ssize_t nvt_er_range_switch_proc_read(struct file *filp, char __user *buf
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_get_er_range_switch(&er_range_switch);
 
@@ -614,9 +614,9 @@ static ssize_t nvt_er_range_switch_proc_write(struct file *filp, const char __us
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_set_er_range_switch(er_range_switch);
 
@@ -737,9 +737,9 @@ static ssize_t nvt_edge_reject_switch_proc_read(struct file *filp, char __user *
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_get_edge_reject_switch(&edge_reject_switch);
 
@@ -803,9 +803,9 @@ static ssize_t nvt_edge_reject_switch_proc_write(struct file *filp, const char _
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_set_edge_reject_switch(edge_reject_switch);
 
@@ -1027,9 +1027,9 @@ static int32_t nvt_fw_version_open(struct inode *inode, struct file *file)
 
 	NVT_LOG("++\n");
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	if (nvt_get_fw_info()) {
 		mutex_unlock(&ts->lock);
@@ -1147,9 +1147,9 @@ static ssize_t nvt_pf_switch_proc_read(struct file *filp, char __user *buf, size
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_get_pf_switch(&pf_switch);
 
@@ -1213,9 +1213,9 @@ static ssize_t nvt_pf_switch_proc_write(struct file *filp, const char __user *bu
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_set_pf_switch(pf_switch);
 
@@ -1331,9 +1331,9 @@ static ssize_t nvt_sensitivity_switch_proc_read(struct file *filp, char __user *
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_get_sensitivity_switch(&sensitivity_switch);
 
@@ -1397,9 +1397,9 @@ static ssize_t nvt_sensitivity_switch_proc_write(struct file *filp, const char _
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_set_sensitivity_switch(sensitivity_switch);
 
@@ -1435,9 +1435,9 @@ static int32_t nvt_baseline_open(struct inode *inode, struct file *file)
 
 	NVT_LOG("++\n");
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	if (nvt_clear_fw_status()) {
 		mutex_unlock(&ts->lock);
@@ -1490,9 +1490,9 @@ static int32_t nvt_raw_open(struct inode *inode, struct file *file)
 
 	NVT_LOG("++\n");
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	if (nvt_clear_fw_status()) {
 		mutex_unlock(&ts->lock);
@@ -1548,9 +1548,9 @@ static int32_t nvt_diff_open(struct inode *inode, struct file *file)
 
 	NVT_LOG("++\n");
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	if (nvt_clear_fw_status()) {
 		mutex_unlock(&ts->lock);
@@ -1747,9 +1747,9 @@ static ssize_t nvt_charger_switch_proc_read(struct file *filp, char __user *buf,
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_get_charger_switch(&charger_switch);
 
@@ -1811,9 +1811,9 @@ static ssize_t nvt_charger_switch_proc_write(struct file *filp, const char __use
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_set_charger_switch(charger_switch);
 
@@ -1874,9 +1874,9 @@ static int32_t nvt_tp_info_open(struct inode *inode, struct file *file)
 
 	NVT_LOG("++\n");
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	if (nvt_get_fw_info()) {
 		mutex_unlock(&ts->lock);
@@ -1996,9 +1996,9 @@ static ssize_t nvt_pocket_palm_switch_proc_read(struct file *filp, char __user *
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_get_pocket_palm_switch(&pocket_palm_switch);
 
@@ -2060,9 +2060,9 @@ static ssize_t nvt_pocket_palm_switch_proc_write(struct file *filp, const char _
 		return -ERESTARTSYS;
 	}
 
-#if NVT_TOUCH_ESD_PROTECT
+#ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT
 	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
+#endif /* ifdef CONFIG_TOUCHSCREEN_NT36672C_ESD_PROTECT */
 
 	nvt_set_pocket_palm_switch(pocket_palm_switch);
 
