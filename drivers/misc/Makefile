@@ -62,6 +62,15 @@ obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
 obj-$(CONFIG_MEMORY_STATE_TIME)	+= memory_state_time.o
 obj-$(CONFIG_MEDIATEK_SOLUTION) += mediatek/
 
+# BSP.System - 2020.10.28 - add hw_info
+obj-$(CONFIG_HQ_SYSFS_SUPPORT) 	+= hqsysfs/
+# BSP.System - 2020.10.30 - add cpu id
+obj-$(CONFIG_SERIAL_NUM) += serial_num.o
+#BSP.Security - 2020.12.19 - add debugpolicy feature
+obj-$(CONFIG_DEBUG_POLICY) += debug_policy.o
+#BSP.System - 2020.12.20 - add chip_id feature
+obj-$(CONFIG_CHIP_ID) += chip_id.o
+
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_core.o
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_bugs.o
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_heap.o
