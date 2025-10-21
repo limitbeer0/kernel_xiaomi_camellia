@@ -187,3 +187,5 @@ obj-y += subpmic/
 obj-$(CONFIG_MTK_GATE_IC) += gate_ic/
 obj-$(CONFIG_MTK_OTP) += otp/
 obj-$(CONFIG_MTK_SDA) += sda/
+# BSP.System - 2020.11.2 - add simtray status
+obj-y += simtray/

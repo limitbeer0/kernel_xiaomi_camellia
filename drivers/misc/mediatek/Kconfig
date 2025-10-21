@@ -471,6 +471,8 @@ source "drivers/misc/mediatek/udi/Kconfig"
 source "drivers/misc/mediatek/hdmi/Kconfig"
 source "drivers/misc/mediatek/otp/Kconfig"
 source "drivers/misc/mediatek/sda/Kconfig"
+# BSP.System - 2020.11.2 - add simtray status
+source "drivers/misc/mediatek/simtray/Kconfig"
 
 endmenu    # Misc
 
