@@ -74,6 +74,14 @@ struct regmap;
 struct mm_qos_request;
 struct pm_qos_request;
 
+/* BSP.LCM - 2020.12.08 start */
+struct fb_lcd_wp_para {
+	int white_point_x;
+	int white_point_y;
+	int white_point_l;
+};
+/* BSP.LCM - 2020.12.08 end */
+
 struct mtk_atomic_state {
 	struct drm_atomic_state base;
 	struct list_head list;
