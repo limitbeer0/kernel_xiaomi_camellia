@@ -16,7 +16,12 @@ obj-$(CONFIG_DRM_PANEL_LG_U40073) += panel-lg-u40073.o
 obj-$(CONFIG_DRM_PANEL_LG_0565G40108) += panel-lg-0565g40108.o
 obj-$(CONFIG_DRM_PANEL_LG_0565G40108_CMD) += panel-lg-0565g40108-cmd.o
 obj-$(CONFIG_DRM_PANEL_SAMSUNG_AMS601NN04_CMD) += panel-samsung-ams601nn04-cmd.o
+# BSP.lcm - 2020.11.19 - start
+obj-$(CONFIG_DRM_PANEL_NT36672D_TIANMA_VDO) += panel-nt36672d-tianma-fhdp-dsi-vdo-90hz.o
+obj-$(CONFIG_DRM_PANEL_NT36672C_TIANMA_VDO) += panel-nt36672c-tianma-fhdp-dsi-vdo-90hz.o
+obj-$(CONFIG_DRM_PANEL_NT36672C_TRULY_VDO) += panel-nt36672c-truly-fhdp-dsi-vdo-90hz.o
 obj-$(CONFIG_DRM_PANEL_NT35695B_AUO_VDO) += panel-nt35695b-auo-vdo.o
+# BSP.lcm - 2020.11.19 - end
 obj-$(CONFIG_DRM_PANEL_NT35695B_AUO_CMD) += panel-nt35695b-auo-cmd.o
 obj-$(CONFIG_DRM_PANEL_AUO_HX83112B_VDO) += panel-auo-hx83112b-vdo.o
 obj-$(CONFIG_DRM_PANEL_OTM1911A_AUO_VDO) += panel-otm1911a-auo-vdo.o
@@ -66,3 +71,4 @@ obj-$(CONFIG_DRM_PANEL_TRULY_NT35595_CMD) += panel-truly-nt35595-cmd.o
 obj-$(CONFIG_DRM_PANEL_TRULY_NT35595_VDO) += panel-truly-nt35595-vdo.o
 obj-$(CONFIG_DRM_PANEL_TRULY_ILI9881H_VDO) += panel-truly-ili9881h-rt4801-vdo.o
 obj-$(CONFIG_DRM_PANEL_TRULY_ILI9882N_VDO_90HZ) += panel-truly-ili9882n-rt4801-vdo-90hz.o
+obj-$(CONFIG_DRM_PANEL_BOE_NT35625B3_VDO) += k6833v1_64_alpha/panel-k6833v1-boe-nt35625b3-vdo.o
