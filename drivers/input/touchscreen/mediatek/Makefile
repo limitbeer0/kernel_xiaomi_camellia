@@ -1,4 +1,4 @@
-subdir-ccflags-y += -Werror
+#subdir-ccflags-y += -Werror
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/input/touchscreen/mediatek
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
@@ -23,3 +23,7 @@ obj-$(CONFIG_TOUCHSCREEN_HIMAX_I2C)	+=  hxchipset/
 obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_FHD)	+=  focaltech_fhd_touch/
 obj-$(CONFIG_TOUCHSCREEN_MTK_GT9157)    +=  GT9157/
 obj-$(CONFIG_TOUCHSCREEN_HIMAX_CHIPSET_8789P1_8185P3)    +=  hxchipset_8789p1_8185p3/
+# BSP.TP - 2020.10.29 - Add for TP bring up
+obj-$(CONFIG_TOUCHSCREEN_NT36672C)      += NT36672C/
+#BSP.TP - 2020.12.28 - Add for palm senser
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE)  += xiaomi/
