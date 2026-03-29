@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2019 MediaTek Inc.
  * Copyright (C) 2021 XiaoMi, Inc.
