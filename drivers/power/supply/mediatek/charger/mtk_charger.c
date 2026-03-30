@@ -1,5 +1,7 @@
+
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -73,10 +75,76 @@
 
 #include "mtk_charger_intf.h"
 #include "mtk_charger_init.h"
+#include "../../../../misc/hqsysfs/hqsys_pcba.h"
 
 static struct charger_manager *pinfo;
 static struct list_head consumer_head = LIST_HEAD_INIT(consumer_head);
 static DEFINE_MUTEX(consumer_mutex);
+
+/* BSP.Charger - 2020.11.27 - add for thermal current limit - start */
+#define THERMAL_MAX 25
+/* BSP.Charger - 2020.12.24 - modify thermal current limit - start */
+static int thermal_mitigation_dcp[THERMAL_MAX] = {
+	2000000, 2000000, 2000000, 1600000, 1600000,
+	1600000, 1200000, 1200000, 1000000, 1000000,
+	1000000, 2000000, 2000000, 2000000, 2000000,
+	2000000, 2000000, 2000000, 2000000, 2000000,
+	2000000, 2000000, 0, 0, 0 };
+
+static int thermal_mitigation_qc2[THERMAL_MAX] = {
+	2000000, 2000000, 2000000, 2000000, 2000000,
+	1200000, 1200000, 1200000, 1000000, 1000000,
+	800000, 2000000, 2000000, 2000000, 2000000,
+	2000000, 1700000, 1700000, 1700000, 1700000,
+	1700000, 1700000, 0, 0, 0 };
+
+static int thermal_mitigation_dcp_india[THERMAL_MAX] = {
+	2000000, 2000000, 2000000, 1600000, 1600000,
+	1600000, 1200000, 1200000, 1000000, 1000000,
+	1000000, 2000000, 2000000, 2000000, 2000000,
+	2000000, 2000000, 2000000, 2000000, 2000000,
+	2000000, 2000000, 0, 0, 0 };
+
+static int thermal_mitigation_qc2_india[THERMAL_MAX] = {
+	2000000, 2000000, 2000000, 2000000, 2000000,
+	1200000, 1200000, 1200000, 1000000, 1000000,
+	800000, 2000000, 2000000, 2000000, 2000000,
+	1600000, 1600000, 1600000, 1500000, 1400000,
+	1200000, 1200000, 0, 0, 0 };
+/* BSP.Charger - 2020.12.24 - modify thermal current limit - end */
+
+/* We use soft HVDCP2 solution, no need HVDCP3 */
+/*
+ * static int thermal_mitigation_qc3[THERMAL_MAX] = {
+ *	3000000, 3000000, 2500000, 2500000, 2500000,
+ *	2000000, 2000000, 1500000, 2000000, 1500000,
+ *	1000000, 1000000, 1000000, 1000000, 1500000,
+ *	1000000, 1500000, 685000, 1500000, 685000,
+ *	685000, 685000,  685000, 685000, 685000};
+*/
+/* BSP.Charger - 2020.11.27 - add for thermal current limit - end */
+
+/* BSP.Charger - 2021.01.11 - get pcba version and load curret limit - start */
+void hqsys_pcba_set_thermal_current_limit(void)
+{
+	bool is_india = false;
+
+	PCBA_CONFIG pcba_to_thermal = PCBA_UNKNOW;
+
+	pcba_to_thermal = get_huaqin_pcba_config();
+
+	if (pcba_to_thermal == PCBA_K19P_P1_INDIA || pcba_to_thermal == PCBA_K19P_P1_1_INDIA
+			|| pcba_to_thermal == PCBA_K19P_P2_INDIA || pcba_to_thermal == PCBA_K19P_MP_INDIA)
+		is_india = true;
+
+	pr_err("thermal_pcba is %d, is_india:%d\n", pcba_to_thermal, is_india);
+
+	if (is_india) {
+		memcpy(thermal_mitigation_dcp, thermal_mitigation_dcp_india, sizeof(thermal_mitigation_dcp));
+		memcpy(thermal_mitigation_qc2, thermal_mitigation_qc2_india, sizeof(thermal_mitigation_qc2));
+	}
+}
+/* BSP.Charger - 2021.01.11 - get pcba version and load curret limit - end */
 
 
 bool mtk_is_TA_support_pd_pps(struct charger_manager *pinfo)
@@ -921,6 +989,104 @@ int charger_get_vbus(void)
 	vchr = vchr / 1000;
 	return vchr;
 }
+
+/* BSP.Charge - 2020.11.09 - Add ibus(ma) interface - start */
+int charger_get_ibus_ma(void)
+{
+	int ret = 0;
+	int ichr = 0;
+
+	if (pinfo == NULL)
+		return 0;
+	ret = charger_dev_get_ibus(pinfo->chg1_dev, &ichr);
+	if (ret < 0) {
+		chr_err("%s: get ibus failed: %d\n", __func__, ret);
+		return ret;
+	}
+
+	ichr = ichr / 1000;
+	return ichr;
+}
+/* BSP.Charge - 2020.11.09 - Add ibus(ma) interface - end*/
+
+/* BSP.Charger - 2020.11.13 - Add input suspend interface - start */
+int charger_manager_set_input_suspend(bool suspend)
+{
+	pr_info("%s suspend: %d.\n", __func__, suspend);
+
+	if (pinfo == NULL)
+		return -ENOTSUPP;
+
+	charger_dev_enable_powerpath(pinfo->chg1_dev, !suspend);
+	pinfo->is_input_suspend = suspend;
+
+	if (suspend)
+		charger_manager_notifier(pinfo, CHARGER_NOTIFY_STOP_CHARGING);
+	else
+		charger_manager_notifier(pinfo, CHARGER_NOTIFY_START_CHARGING);
+
+	return 0;
+}
+
+int charger_manager_is_input_suspend(void)
+{
+	if (pinfo == NULL)
+		return -ENOTSUPP;
+	return pinfo->is_input_suspend;
+}
+/* BSP.Charger - 2020.11.13 - Add input suspend interface - end */
+
+/* BSP.Charger - 2020.11.27 - add for thermal current limit - start */
+int charger_manager_get_system_temp_level_max(void)
+{
+	return (THERMAL_MAX - 1);
+}
+
+int charger_manager_get_system_temp_level(void)
+{
+	if (pinfo == NULL)
+		return false;
+
+	return pinfo->system_temp_level;
+}
+
+void charger_manager_set_system_temp_level(int temp_level)
+{
+	int thermal_icl_ua = 0;
+
+	if (pinfo == NULL)
+		return;
+
+	if (temp_level > (THERMAL_MAX - 1))
+		pinfo->system_temp_level = (THERMAL_MAX - 1);
+	else
+		pinfo->system_temp_level = temp_level;
+
+	switch (pinfo->chr_type) {
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	case HVDCP_CHARGER:
+		thermal_icl_ua = thermal_mitigation_qc2[pinfo->system_temp_level];
+		break;
+#endif
+	case STANDARD_CHARGER:
+		thermal_icl_ua = thermal_mitigation_dcp[pinfo->system_temp_level];
+		break;
+	default:
+		thermal_icl_ua = thermal_mitigation_dcp[pinfo->system_temp_level];
+		break;
+	}
+
+	if (pinfo->system_temp_level == 0)
+		thermal_icl_ua = -1;
+
+	chr_err("[%s], system_temp_level:%d thermal_icl_ua:%d charger_type:%d\n",
+		__func__, pinfo->system_temp_level, thermal_icl_ua,
+		pinfo->chr_type);
+
+	charger_manager_set_input_current_limit(pinfo->chg1_consumer,
+					MAIN_CHARGER, thermal_icl_ua);
+}
+/* BSP.Charger - 2020.11.27 - add for thermal current limit - end */
 
 /* internal algorithm common function end */
 
@@ -1993,6 +2159,32 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 			of_property_read_bool(np, "enable_sw_safety_timer");
 	info->sw_safety_timer_setting = info->enable_sw_safety_timer;
 	info->enable_sw_jeita = of_property_read_bool(np, "enable_sw_jeita");
+
+	/* BSP.Charge - 2021.01.11 - add ffc parameters - start */
+	info->enable_sw_ffc = of_property_read_bool(np, "enable_sw_ffc");
+
+	if (of_property_read_u32(np, "ffc_cv_1", &val) >= 0)
+		info->ffc_cv_1 = val;
+	if (of_property_read_u32(np, "ffc_cv_2", &val) >= 0)
+		info->ffc_cv_2 = val;
+	if (of_property_read_u32(np, "ffc_cv_3", &val) >= 0)
+		info->ffc_cv_3 = val;
+	if (of_property_read_u32(np, "ffc_cv_4", &val) >= 0)
+		info->ffc_cv_4 = val;
+
+	if (of_property_read_u32(np, "chg_cycle_count_level1", &val) >= 0)
+		info->chg_cycle_count_level1 = val;
+	if (of_property_read_u32(np, "chg_cycle_count_level2", &val) >= 0)
+		info->chg_cycle_count_level2 = val;
+	if (of_property_read_u32(np, "chg_cycle_count_level3", &val) >= 0)
+		info->chg_cycle_count_level3 = val;
+	if (of_property_read_u32(np, "chg_cycle_count_level4", &val) >= 0)
+		info->chg_cycle_count_level4 = val;
+	/* BSP.Charge - 2021.01.11 - add ffc parameters - end */
+
+	/* BSP.Charge - 2021.01.12 - add recharger uisoc limit */
+	if (of_property_read_u32(np, "recharger_uisoc_limit", &val) >= 0)
+		info->recharger_uisoc_limit = val;
 	info->enable_pe_plus = of_property_read_bool(np, "enable_pe_plus");
 	info->enable_pe_2 = of_property_read_bool(np, "enable_pe_2");
 	info->enable_pe_4 = of_property_read_bool(np, "enable_pe_4");
@@ -3868,6 +4060,8 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, info);
 	info->pdev = pdev;
 	mtk_charger_parse_dt(info, &pdev->dev);
+	/* BSP.Charger - 2021.01.11 - get pcba version and load current limit */
+	hqsys_pcba_set_thermal_current_limit();
 
 	mutex_init(&info->charger_lock);
 	mutex_init(&info->charger_pd_lock);
