@@ -2049,15 +2049,17 @@ int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc)
 		return ret;
 
 	TYPEC_INFO("[CC_Alert] %d/%d\n", typec_get_cc1(), typec_get_cc2());
-
-	if (typec_is_cc_no_res()) {
-		TYPEC_DBG("[Warning] CC No Res\n");
-		if (typec_get_cc1() == 0 && typec_get_cc2() == 0)
+/* BSP.Charge - 2020.11.11 - Add node to show typec_cc_orientation start*/
+	if (typec_get_cc1() == 0 && typec_get_cc2() == 0)
 		typec_cc_orient = 0;
 	else if (typec_get_cc2() == 0)
 		typec_cc_orient = 1;
 	else if (typec_get_cc1() == 0)
 		typec_cc_orient = 2;
+/* end */
+
+	if (typec_is_cc_no_res()) {
+		TYPEC_DBG("[Warning] CC No Res\n");
 		if (tcpc->typec_lpm && !tcpc->typec_cable_only)
 			typec_enter_low_power_mode(tcpc);
 		if (typec_is_drp_toggling())
