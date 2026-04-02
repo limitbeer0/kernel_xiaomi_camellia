@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -166,9 +167,7 @@ enum {
 enum ppm_policy {
 	PPM_POLICY_PTPOD = 0, /* highest priority */
 	PPM_POLICY_UT,
-	/*K19A HQ-123203 K19A config thermal farmework by denggang at 2021/04/16 start*/
 	PPM_POLICY_SYS_BOOST,
-	/*K19A HQ-123203 K19A config thermal farmework by denggang at 2021/04/16 end*/
 	PPM_POLICY_FORCE_LIMIT,
 	PPM_POLICY_PWR_THRO,
 	PPM_POLICY_THERMAL,
@@ -261,6 +260,7 @@ struct ppm_user_limit {
 	int max_freq_idx;
 	int min_core_num;
 	int max_core_num;
+	int cluster_id;
 };
 
 struct ppm_userlimit_data {
