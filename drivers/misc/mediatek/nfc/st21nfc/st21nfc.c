@@ -2,6 +2,7 @@
 /*
  * NFC Controller Driver
  * Copyright (C) 2020 ST Microelectronics S.A.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2010 Stollmann E+V GmbH
  * Copyright (C) 2010 Trusted Logic S.A.
  */
@@ -478,7 +479,7 @@ static ssize_t st21nfc_dev_read(
 	/* copy back to buffer */
 	if (ret > 0)
 		memcpy(st21nfc_dev->buffer,
-			(unsigned char *)(uintptr_t)I2CDMAReadBuf, ret);
+			(unsigned char *)(uintptr_t)I2CDMAReadBuf_pa, ret);
 #else
 	ret = i2c_master_recv(st21nfc_dev->client, st21nfc_dev->buffer, count);
 #endif
@@ -960,11 +961,15 @@ static ssize_t power_stats_show(struct device *dev,
 		"\nError transition header --> payload state machine: 0x%llx\n"
 		"Error transition from an Active state when not in Idle state: 0x%llx\n"
 		"Error transition from Idle state to Idle state: 0x%llx\n"
-		"Warning transition from Active Reader/Writer state to Idle state: 0x%llx\n"
-		"Error transition from Active state to Active state: 0x%llx\n"
-		"Error transition from Idle state to Active state with notification: 0x%llx\n"
-		"Error transition from Active Reader/Writer state to Active Reader/Writer state: 0x%llx\n"
-		"Error transition from Idle state to Active Reader/Writer state with notification: 0x%llx\n"
+      "Warning transition from Active Reader/Writer state to Idle state: "
+      "0x%llx\n"
+      "Error transition from Active state to Active state: 0x%llx\n"
+      "Error transition from Idle state to Active state with notification: "
+      "0x%llx\n"
+      "Error transition from Active Reader/Writer state to Active "
+      "Reader/Writer state: 0x%llx\n"
+      "Error transition from Idle state to Active Reader/Writer state with "
+      "notification: 0x%llx\n"
 		"\nTotal uptime: 0x%llx Cumulative modes time: 0x%llx\n",
 		data->c_pw_states[ST21NFC_IDLE].count, idle_duration,
 		data->c_pw_states[ST21NFC_IDLE].last_entry,
@@ -1364,6 +1369,13 @@ static struct platform_driver st21nfc_platform_driver = {
 static int __init st21nfc_dev_init(void)
 {
 	pr_info("Loading st21nfc driver\n");
+	printk(KERN_ERR "saved_command_line:%s", saved_command_line);
+	if (!(strnstr(saved_command_line,
+		     "androidboot.product.hardware.sku=camellian", strlen(saved_command_line)) || strnstr(saved_command_line,
+		     "androidboot.product.hardware.sku=camellianp", strlen(saved_command_line))))  {// Distinguish two Indian NFC attributes for POCO by yanqiwen
+		printk(KERN_ERR "not nfc phone!");
+		return -EPERM;
+	}
 #ifndef KRNMTKLEGACY_GPIO
 	platform_driver_register(&st21nfc_platform_driver);
 	if (enable_debug_log)
