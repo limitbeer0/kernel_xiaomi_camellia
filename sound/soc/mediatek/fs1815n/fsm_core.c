@@ -1012,7 +1012,7 @@ int fsm_parse_preset(const void *data, uint32_t size)
 int fsm_swap_channel(fsm_dev_t *fsm_dev, int next_angle)
 {
 	uint16_t left_chn;
-	uint8_t i2sctrl;
+	uint8_t __maybe_unused i2sctrl;
 	uint16_t chs12;
 	int ret = 0;
 
