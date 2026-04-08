@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -74,6 +75,7 @@ enum {
 	SENSOR_TYPE_SAR,
 	SENSOR_TYPE_OIS,
 	SENSOR_TYPE_GYRO_SECONDARY,
+	SENSOR_TYPE_REAR_LIGHT,
 	SENSOR_TYPE_SENSOR_MAX,
 };
 
@@ -138,6 +140,7 @@ enum {
 	ID_SAR,
 	ID_OIS,
 	ID_GYRO_SECONDARY,
+	ID_REAR_LIGHT,
 	ID_SENSOR_MAX,
 };
 
