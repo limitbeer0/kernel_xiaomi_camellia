@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -34,6 +35,8 @@
 
 #define HF_CLIENT_FIFO_SIZE 128
 
+
+
 struct sensor_state {
 	bool enable;
 	bool bias;
@@ -47,6 +50,7 @@ struct sensor_state {
 	atomic64_t start_time;
 };
 
+
 struct hf_core {
 	struct mutex manager_lock;
 	struct list_head manager_list;
@@ -57,6 +61,7 @@ struct hf_core {
 
 	struct mutex device_lock;
 	struct list_head device_list;
+
 
 	struct kthread_worker kworker;
 };
