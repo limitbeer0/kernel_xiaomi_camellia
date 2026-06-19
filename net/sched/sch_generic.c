@@ -182,7 +182,7 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
 
 	/* Note that we validate skb (GSO, checksum, ...) outside of locks */
 	if (validate)
-		skb = validate_xmit_skb_list(skb, dev, &again);
+		skb = validate_xmit_skb_list(skb, dev);
 
 #ifdef CONFIG_XFRM_OFFLOAD
 	if (unlikely(again)) {
