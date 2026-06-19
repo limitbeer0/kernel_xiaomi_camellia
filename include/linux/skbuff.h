@@ -4344,5 +4344,94 @@ static inline __wsum lco_csum(struct sk_buff *skb)
 	return csum_partial(l4_hdr, csum_start - l4_hdr, partial);
 }
 
+#ifdef CONFIG_SKB_EXTENSIONS
+enum skb_ext_id {
+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+	SKB_EXT_BRIDGE_NF,
+#endif
+	SKB_EXT_NUM,
+};
+
+struct skb_ext {
+	refcount_t refcnt;
+	u8 offset[SKB_EXT_NUM];
+	u8 chunks;
+	char data[0] __aligned(8);
+};
+
+void *skb_ext_add(struct sk_buff *skb, enum skb_ext_id id);
+void __skb_ext_del(struct sk_buff *skb, enum skb_ext_id id);
+void __skb_ext_put(struct skb_ext *ext);
+static inline void skb_ext_put(struct sk_buff *skb)
+{
+	if (skb->active_extensions)
+		__skb_ext_put(skb->extensions);
+}
+
+static inline void skb_ext_get(struct sk_buff *skb)
+{
+	if (skb->active_extensions) {
+		struct skb_ext *ext = skb->extensions;
+		if (ext)
+			refcount_inc(&ext->refcnt);
+	}
+}
+
+static inline void __skb_ext_copy(struct sk_buff *dst, const struct sk_buff *src)
+{
+	dst->active_extensions = src->active_extensions;
+	if (src->active_extensions) {
+		struct skb_ext *ext = src->extensions;
+		refcount_inc(&ext->refcnt);
+		dst->extensions = ext;
+	}
+}
+
+static inline void skb_ext_copy(struct sk_buff *dst, const struct sk_buff *src)
+{
+	skb_ext_put(dst);
+	__skb_ext_copy(dst, src);
+}
+
+static inline bool __skb_ext_exist(const struct skb_ext *ext, enum skb_ext_id i)
+{
+	return !!ext->offset[i];
+}
+
+static inline bool skb_ext_exist(const struct sk_buff *skb, enum skb_ext_id id)
+{
+	return skb->active_extensions & (1 << id);
+}
+
+static inline void skb_ext_del(struct sk_buff *skb, enum skb_ext_id id)
+{
+	if (skb_ext_exist(skb, id))
+		__skb_ext_del(skb, id);
+}
+
+static inline void *skb_ext_find(const struct sk_buff *skb, enum skb_ext_id id)
+{
+	if (skb_ext_exist(skb, id)) {
+		struct skb_ext *ext = skb->extensions;
+		return (void *)ext + (ext->offset[id] << 3);
+	}
+	return NULL;
+}
+#else
+static inline void skb_ext_put(struct sk_buff *skb) {}
+static inline void skb_ext_get(struct sk_buff *skb) {}
+static inline void skb_ext_del(struct sk_buff *skb, int unused) {}
+static inline void __skb_ext_copy(struct sk_buff *d, const struct sk_buff *s) {}
+static inline void skb_ext_copy(struct sk_buff *dst, const struct sk_buff *s) {}
+#endif /* CONFIG_SKB_EXTENSIONS */
+
+static inline int secpath_exists(const struct sk_buff *skb)
+{
+#ifdef CONFIG_XFRM
+	return skb->sp != NULL;
+#else
+	return 0;
+#endif
+}
 #endif	/* __KERNEL__ */
 #endif	/* _LINUX_SKBUFF_H */

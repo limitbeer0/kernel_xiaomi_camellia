@@ -82,6 +82,9 @@ static struct kmem_cache *skbuff_fclone_cache __read_mostly;
 #ifdef CONFIG_SKB_EXTENSIONS
 static struct kmem_cache *skbuff_ext_cache __ro_after_init;
 #endif
+#ifdef CONFIG_SKB_EXTENSIONS
+static struct kmem_cache *skbuff_ext_cache __ro_after_init;
+#endif
 int sysctl_max_skb_frags __read_mostly = MAX_SKB_FRAGS;
 EXPORT_SYMBOL(sysctl_max_skb_frags);
 
@@ -669,6 +672,89 @@ void skb_release_head_state(struct sk_buff *skb)
 	skb_ext_put(skb);
 }
 
+#ifdef CONFIG_SKB_EXTENSIONS
+void __skb_ext_put(struct skb_ext *ext)
+{
+	if (refcount_read(&ext->refcnt) == 1)
+		goto free_now;
+	if (!refcount_dec_and_test(&ext->refcnt))
+		return;
+free_now:
+	kmem_cache_free(skbuff_ext_cache, ext);
+}
+EXPORT_SYMBOL(__skb_ext_put);
+
+void __skb_ext_del(struct sk_buff *skb, enum skb_ext_id id)
+{
+	struct skb_ext *ext = skb->extensions;
+	skb->active_extensions &= ~(1 << id);
+	if (skb->active_extensions == 0) {
+		skb->extensions = NULL;
+		__skb_ext_put(ext);
+	}
+}
+EXPORT_SYMBOL(__skb_ext_del);
+
+static void *skb_ext_get_ptr(struct skb_ext *ext, enum skb_ext_id id)
+{
+	return (void *)ext + (ext->offset[id] * SKB_EXT_ALIGN_VALUE);
+}
+
+static struct skb_ext *skb_ext_alloc(void)
+{
+	struct skb_ext *new = kmem_cache_alloc(skbuff_ext_cache, GFP_ATOMIC);
+	if (new) {
+		memset(new->offset, 0, sizeof(new->offset));
+		refcount_set(&new->refcnt, 1);
+	}
+	return new;
+}
+
+static struct skb_ext *skb_ext_maybe_cow(struct skb_ext *old)
+{
+	struct skb_ext *new;
+	if (refcount_read(&old->refcnt) == 1)
+		return old;
+	new = kmem_cache_alloc(skbuff_ext_cache, GFP_ATOMIC);
+	if (!new)
+		return NULL;
+	memcpy(new, old, old->chunks * SKB_EXT_ALIGN_VALUE);
+	refcount_set(&new->refcnt, 1);
+	__skb_ext_put(old);
+	return new;
+}
+
+void *skb_ext_add(struct sk_buff *skb, enum skb_ext_id id)
+{
+	struct skb_ext *new, *old = NULL;
+	unsigned int newlen, newoff;
+	if (skb->active_extensions) {
+		old = skb->extensions;
+		new = skb_ext_maybe_cow(old);
+		if (!new)
+			return NULL;
+		if (__skb_ext_exist(old, id)) {
+			if (old != new)
+				skb->extensions = new;
+			goto set_active;
+		}
+		newoff = old->chunks;
+	} else {
+		newoff = SKB_EXT_CHUNKSIZEOF(*new);
+		new = skb_ext_alloc();
+		if (!new)
+			return NULL;
+	}
+	newlen = newoff + skb_ext_type_len[id];
+	new->chunks = newlen;
+	new->offset[id] = newoff;
+	skb->extensions = new;
+set_active:
+	skb->active_extensions |= 1 << id;
+	return skb_ext_get_ptr(new, id);
+}
+EXPORT_SYMBOL(skb_ext_add);
+#endif /* CONFIG_SKB_EXTENSIONS */
 /* Free everything but the sk_buff shell. */
 static void skb_release_all(struct sk_buff *skb)
 {
