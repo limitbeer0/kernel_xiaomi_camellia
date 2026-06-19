@@ -1,3 +1,5 @@
+extern const struct file_operations btf_fops;
+extern const struct file_operations btf_fops;
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
  */
@@ -5,6 +7,7 @@
 #include <linux/bpf_trace.h>
 #include <linux/bpf_lirc.h>
 #include <linux/btf.h>
+extern const struct file_operations btf_fops;
 #include <linux/syscalls.h>
 #include <linux/slab.h>
 #include <linux/sched/signal.h>
@@ -492,7 +495,8 @@ static int bpf_obj_name_cpy(char *dst, const char *src)
 }
 
 int map_check_no_btf(const struct bpf_map *map,
-		     const struct btf_type *key_type,
+		     const struct btf *btf,
+				 const struct btf_type *key_type,
 		     const struct btf_type *value_type)
 {
 	return -ENOTSUPP;
@@ -540,7 +544,7 @@ static int map_check_btf(struct bpf_map *map, const struct btf *btf,
 	}
 
 	if (map->ops->map_check_btf)
-		ret = map->ops->map_check_btf(map, key_type, value_type);
+		ret = map->ops->map_check_btf(map, btf, key_type, value_type);
 
 	return ret;
 }
